@@ -1,10 +1,28 @@
-const mongoose = require("mongoose");
+const mongoose = require("mongoose")
 
 const TodoSchema = new mongoose.Schema({
-  title: { type: String, required: true },
-  description: { type: String, required: true },
-  userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", required: true },  // Reference to the User model
-  createdAt: { type: Date, default: Date.now },
-});
 
-module.exports = mongoose.model("Todo", TodoSchema);
+  user:{
+    type:mongoose.Schema.Types.ObjectId,
+    ref:"User",
+    required:true
+  },
+
+  title:{
+    type:String,
+    required:true
+  },
+
+  description:{
+    type:String,
+    default:""
+  },
+
+  completed:{
+    type:Boolean,
+    default:false
+  }
+
+},{timestamps:true})
+
+module.exports = mongoose.model("Todo",TodoSchema)

@@ -1,87 +1,59 @@
-const express = require("express");
-const Todo = require("../models/Todo");
-const verifyToken = require("../middleware/authMiddleware");  // Import the verifyToken middleware
-const router = express.Router();
+const router = require("express").Router()
+const Todo = require("../models/Todo")
+const auth = require("../middleware/authMiddleware")
 
-// POST: Create a new todo
-router.post("/create", verifyToken, async (req, res) => {
-  const { title, description } = req.body;
+router.get("/get", auth, async(req,res)=>{
 
-  try {
-    // Check if user is authenticated
-    const userId = req.user.id;  // Extract the user ID from the request
+  const todos = await Todo.find({user:req.user.id})
+  res.json(todos)
 
-    console.log(userId);
-    if (!userId) {
-      return res.status(400).json({ error: "User ID not found" });
-    }
+})
 
-    const newTodo = new Todo({
-      title,
-      description,
-      userId: userId,  // Store user ID in the todo
-    });
+router.post("/create", auth, async(req,res)=>{
 
-    await newTodo.save();
+  const {title,description,completed} = req.body
 
-    res.status(201).json(newTodo);  // Return the created todo
-  } catch (err) {
-    console.error("Error creating todo: ", err);
-    res.status(500).json({ error: "Server error" });
+  const todo = await Todo.create({
+    user:req.user.id,
+    title,
+    description,
+    completed
+  })
+
+  res.json(todo)
+
+})
+
+router.put("/edit/:id", auth, async(req,res)=>{
+
+  const {title,description,completed} = req.body
+
+  const todo = await Todo.findOneAndUpdate(
+    { _id: req.params.id, user: req.user.id },
+    { title, description, completed },
+    { new: true }
+  )
+
+  if (!todo) {
+    return res.status(404).json({ message: "Todo not found" })
   }
-});
 
+  res.json(todo)
 
-// GET: Fetch all todos for the authenticated user
-router.get("/get", verifyToken, async (req, res) => {
-  try {
-    // Get the user ID from the request object (from the verified token)
-    const userId = req.user.id;
+})
 
-    if (!userId) {
-      return res.status(400).json({ error: "User ID not found" });
-    }
+router.delete("/delete/:id", auth, async(req,res)=>{
 
-    // Fetch all todos belonging to the user
-    const todos = await Todo.find({ userId });
+  const todo = await Todo.findOneAndDelete({
+    _id: req.params.id,
+    user: req.user.id
+  })
 
-    if (!todos || todos.length === 0) {
-      return res.status(404).json({ error: "No todos found" });
-    }
-
-    // Return the list of todos
-    res.status(200).json(todos);
-  } catch (err) {
-    console.error("Error fetching todos: ", err);
-    res.status(500).json({ error: "Server error" });
+  if (!todo) {
+    return res.status(404).json({ message: "Todo not found" })
   }
-});
 
-// DELETE: Delete a todo by ID
-router.delete("/todos/:id", verifyToken, async (req, res) => {
-  const { id } = req.params;  // Get the ID of the todo to delete
+  res.json({ message: "Deleted" })
+})
 
-  try {
-    // Get the user ID from the verified token
-    const userId = req.user.id;
-
-    if (!userId) {
-      return res.status(400).json({ error: "User ID not found" });
-    }
-
-    // Find the todo by ID and ensure it belongs to the authenticated user
-    const todo = await Todo.findOneAndDelete({ _id: id, userId });
-
-    if (!todo) {
-      return res.status(404).json({ error: "Todo not found or you don't have permission" });
-    }
-
-    // Return success response
-    res.status(200).json({ message: "Todo deleted successfully" });
-  } catch (err) {
-    console.error("Error deleting todo: ", err);
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-module.exports = router;
+module.exports = router

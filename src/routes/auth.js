@@ -1,66 +1,60 @@
-const express = require("express");
-const bcrypt = require("bcryptjs");
-const jwt = require("jsonwebtoken");
-const User = require("../models/User");
-const router = express.Router();
+const router = require("express").Router()
+const bcrypt = require("bcryptjs")
+const jwt = require("jsonwebtoken")
+const User = require("../models/User")
 
-// Login Route
-router.post("/login", async (req, res) => {
-  const { email, password } = req.body;
+router.post("/register", async(req,res)=>{
 
+    const {username,email,password} = req.body
 
-  try {
-    // Make sure User.findOne is being called correctly
-    const user = await User.findOne({ email });  // This should work if the model is correct
-    if (!user) {
-      return res.status(400).json({ error: "Invalid credentials" });
+    const userExists = await User.findOne({email})
+
+    if(userExists){
+        return res.status(400).json({message:"User exists"})
     }
 
-    // Compare the password
-    const isMatch = await bcrypt.compare(password, user.password);
-    if (!isMatch) {
-      return res.status(400).json({ error: "Invalid credentials" });
+    const salt = await bcrypt.genSalt(10)
+    const hashedPassword = await bcrypt.hash(password,salt)
+
+    const user = await User.create({
+        username,
+        email,
+        password:hashedPassword
+    })
+
+    const token = jwt.sign(
+        {id:user._id},
+        process.env.JWT_SECRET,
+        {expiresIn:"7d"}
+    )
+
+    res.json({token})
+})
+
+
+router.post("/login", async(req,res)=>{
+
+    const {email,password} = req.body
+
+    const user = await User.findOne({email})
+
+    if(!user){
+        return res.status(400).json({message:"Invalid credentials"})
     }
 
-    // Generate the JWT token
-    const token = jwt.sign({ id: user._id }, "SECRET_KEY", { expiresIn: "1d" });
+    const match = await bcrypt.compare(password,user.password)
 
-    // Send the token to the client
-    res.json({ token, email: user.email });
-  } catch (err) {
-    console.error(err);  // Log the error for debugging
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-// Register Route
-router.post("/register", async (req, res) => {
-  const { email, password } = req.body;
-
-  try {
-    // Check if email already exists
-    const existingUser = await User.findOne({ email });
-    if (existingUser) {
-      return res.status(400).json({ error: "Email already exists" });
+    if(!match){
+        return res.status(400).json({message:"Invalid credentials"})
     }
 
-    // Hash the password before saving (password hashing done here)
-    const salt = await bcrypt.genSalt(10); // Generate a salt
-    const hashedPassword = await bcrypt.hash(password, salt); // Hash the password
+    const token = jwt.sign(
+        {id:user._id},
+        process.env.JWT_SECRET,
+        {expiresIn:"7d"}
+    )
 
-    // Create new user with hashed password
-    const user = new User({
-      email,
-      password: hashedPassword, // Store the hashed password
-    });
+    res.json({token})
+})
 
-    // Save user to the database
-    await user.save();
-    res.json({ message: "User created successfully" });
-  } catch (err) {
-    console.error("Error during registration: ", err); // Log any errors for debugging
-    res.status(500).json({ error: "Server error" });
-  }
-});
-
-module.exports = router;
+module.exports = router
